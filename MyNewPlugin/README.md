@@ -1,0 +1,2 @@
+# MyNewPlugin readme
+Synthesiser Template

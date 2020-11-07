@@ -1,0 +1,76 @@
+name: Build WAM
+
+on:
+  # workflow_dispatch
+  push:
+    tags:
+      - "v*"
+
+env:
+  PROJECT_NAME: MyNewPlugin
+  URL: https://${{github.repository_owner}}.github.io/${{github.event.repository.name}}/
+
+jobs:
+  build:
+    name: Build-WAM
+    runs-on: ubuntu-latest
+  
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2.3.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      # - name: Setup Emscripten
+      #   uses: lovasoa/setup-emscripten@master
+      #   with:
+      #     emscripten-version: '1.38.47'
+      
+      # - name: Get emscripten
+      #   run: docker pull trzeci/emscripten
+        
+      - name: setup python3
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+
+      - name: Get emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest 
+          ./emsdk activate latest
+
+      - name: Get WAM SDKS
+        run: |
+          cd iPlug2/Dependencies/IPlug
+          ./download-iplug-sdks.sh
+        shell: bash
+
+      - name: Compile WAM
+        run: |
+          cd emsdk
+          source ./emsdk_env.sh
+          cd ..
+          cd ${{env.PROJECT_NAME}}/scripts
+          ./makedist-web.sh off ${{env.URL}}
+          
+      # - name: Compile WAM
+      #   run: |
+      #     sudo docker run --rm -v iPlug2:/src -e URL=${{env.URL}} trzeci/emscripten /bin/bash -c "cd Projects/${{env.PROJECT_NAME}}/scripts;./makedist-web.sh off $URL"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{env.PROJECT_NAME}}-web
+          path: ${{env.PROJECT_NAME}}/build-web
+
+      - name: Publish to pages
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: master
+          BRANCH: gh-pages
+          FOLDER: ${{env.PROJECT_NAME}}/build-web
